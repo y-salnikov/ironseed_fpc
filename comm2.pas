@@ -698,7 +698,7 @@ begin
   1500..1599: begin i:=1; worth:=6; end;
   2000..2999: begin i:=1; worth:=4; end;
   3001..3999: begin i:=1; worth:=3; end;
-  4000..4999: begin i:=1; worth:=2; end;
+  4001..4019,4021..4999: begin i:=1; worth:=2; end;
  end;
  if i=1 then
   begin
