@@ -35,6 +35,7 @@
 #define SOUNDS_VOLUME 128
 #define SOUNDS_MAX_CHANNELS 16
 #define SOUNDS_PATH "sound/"
+#define TURBO_FACTOR 60
 
 SDL_Surface *sdl_screen;
 SDL_Thread *video, *keyshandler;
@@ -78,6 +79,8 @@ uint8_t fill_color;
 uint16_t cur_x;
 uint16_t cur_y;
 uint8_t cur_writemode;
+uint8_t turbo_mode=0;
+
 const uint16_t spec_keys[] = {SDLK_LEFT,SDLK_RIGHT,SDLK_UP,SDLK_DOWN, SDLK_F10 	,0};
 const uint8_t spec_null[] =  {1        , 1        , 1     , 1       , 1			}		;
 const uint8_t spec_map[] =   {75       , 77       , 72    , 80      , 16		};
@@ -228,9 +231,23 @@ int  handle_keys(void *useless)
      	} 
      	if ( event.type == SDL_KEYDOWN )
      	{
-       		keypressed_=1;
-       		key_=event.key.keysym.sym;
+			if(event.key.keysym.sym==SDLK_SCROLLOCK)
+			{
+				turbo_mode=1;
+			} else
+			{
+       			keypressed_=1;
+       			key_=event.key.keysym.sym;
+			}
      	}
+		if( event.type == SDL_KEYUP )
+		{
+			if(event.key.keysym.sym==SDLK_SCROLLOCK)
+			{
+				turbo_mode=0;
+			} 
+		}
+     	
      	if( event.type == SDL_MOUSEMOTION )
      	{
 		  mouse_x = event.motion.x;
@@ -398,10 +415,11 @@ void delay(uint16_t ms)
                time_t tv_sec;        /* seconds */
                long   tv_nsec;       /* nanoseconds */
            } ts2;
-	ts2.tv_sec=0;
-	ts2.tv_nsec=500000;
+ 	ts2.tv_sec=0;
+	ts2.tv_nsec=5000;
 	delta_usec();
 	us=(ms*1000*TIMESCALE)-err;
+	if(turbo_mode) us/=TURBO_FACTOR;
 	while(us>0)
 	{
 		us-=delta_usec();
