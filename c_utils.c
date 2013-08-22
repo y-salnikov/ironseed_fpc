@@ -24,6 +24,11 @@
 #include <sys/time.h>
 #include <math.h>
 #include <errno.h>
+#include "SDL_opengl.h"
+#include <GL/gl.h>
+
+
+//#define NO_OGL
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -37,10 +42,15 @@
 #define SOUNDS_PATH "sound/"
 #define TURBO_FACTOR 60
 
-SDL_Surface *sdl_screen;
+const double ratio=640.0/480.0;
+
+SDL_Surface *sdl_screen, *opengl_screen;
 SDL_Thread *video, *keyshandler;
 Mix_Music *music = NULL;
 Mix_Chunk *raw_chunks[SOUNDS_MAX_CHANNELS];
+
+
+
 typedef struct
 {
 	uint8_t r;
@@ -80,10 +90,31 @@ uint16_t cur_x;
 uint16_t cur_y;
 uint8_t cur_writemode;
 uint8_t turbo_mode=0;
+GLuint main_texture;
+uint8_t resize;
+int resize_x=640;
+int resize_y=480;
+int wx0=0;
+int wy0=0;
 
 const uint16_t spec_keys[] = {SDLK_LEFT,SDLK_RIGHT,SDLK_UP,SDLK_DOWN, SDLK_F10 	,0};
 const uint8_t spec_null[] =  {1        , 1        , 1     , 1       , 1			}		;
 const uint8_t spec_map[] =   {75       , 77       , 72    , 80      , 16		};
+
+
+int dummy(int w,int h);
+int (*resize_callback)(int w,int h)=dummy;
+
+
+void set_resize_callback(int (*callback)(int w,int h))
+{
+	resize_callback=callback;
+}
+
+int dummy(int w,int h)
+{
+}
+
 
 void stop_video_thread(void);
 void all_done(void);
@@ -113,7 +144,79 @@ void Sulock(SDL_Surface *screen){
    SDL_UnlockSurface(screen); 
  } 
 
-} 
+}
+
+void set_perspective(void)
+{
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+    gluOrtho2D(0.0, 1.0, 0.0, 1.0);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+}
+
+
+
+
+
+int resizeWindow( int width, int height )
+{
+    int x0,y0,WWIDTH,WHEIGHT;
+    WWIDTH=width;
+    WHEIGHT=height;
+    if(width/ratio > height)
+    {
+        WWIDTH=height*ratio;
+        WHEIGHT=height;
+        x0=(width-WWIDTH)/2;
+        y0=0;
+    } else
+    {
+        WWIDTH=width;
+        WHEIGHT=width/ratio;
+        x0=0;
+        y0=(height-WHEIGHT)/2;
+    }
+
+    opengl_screen = SDL_SetVideoMode(width, height, 0, SDL_OPENGL |SDL_RESIZABLE | SDL_GL_DOUBLEBUFFER );
+
+    glViewport( x0, y0, ( GLsizei )WWIDTH, ( GLsizei )WHEIGHT );
+
+    set_perspective();
+    wx0=x0;
+    wy0=y0;
+    return 1;
+}
+
+
+
+void init_opengl(void)
+{
+    SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, 8 );
+    if (NULL == (opengl_screen = SDL_SetVideoMode(WIDTH, HEIGHT, 0, SDL_OPENGL |SDL_RESIZABLE | SDL_GL_DOUBLEBUFFER )))
+    {
+        printf("Can't set OpenGL mode: %s\n", SDL_GetError());
+        SDL_Quit();
+        exit(1);
+    } 
+    glClearColor(0.0,0.0,0.0,0.0);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
+    SDL_WM_SetCaption("Ironseed",NULL);
+    glViewport(0,0,WIDTH,HEIGHT);
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_LINE_SMOOTH);
+    glEnable(GL_POINT_SMOOTH);
+    glShadeModel(GL_SMOOTH);
+    glClearStencil(0);     
+    glClearDepth(1.0f);
+	set_perspective();
+    set_resize_callback(resizeWindow);
+}
+
+
+
+
+
 
 void DrawPixel(SDL_Surface *screen, int x, int y, Uint8 R, Uint8 G, Uint8 B){ 
 
@@ -186,12 +289,27 @@ int video_output(void *notused)
 {
 	uint16_t vga_x,vga_y;
 	pal_color_type c;
+	static uint8_t init_flag;
 
 	ts.tv_sec=0;
 	ts.tv_nsec=10000000;
 	 while(!video_stop)
 	 	{
-		
+#ifndef NO_OGL			
+			if((init_flag==0))
+			{
+				init_flag=1;
+					init_opengl();
+					glGenTextures(1,&main_texture);
+					
+			}
+#endif
+		if(resize)
+		{
+			resize=0;
+			resizeWindow(resize_x,resize_y);
+			
+		}
 		Slock(sdl_screen);
 		for(vga_y=0;vga_y<200;vga_y++)
 			for(vga_x=0;vga_x<320;vga_x++)
@@ -207,6 +325,30 @@ int video_output(void *notused)
 			show_cursor();
 		Sulock(sdl_screen);
 		SDL_Flip(sdl_screen);
+#ifndef NO_OGL
+	glLoadIdentity();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); 	// clear buffers
+    glEnable(GL_TEXTURE_2D);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+	glBindTexture(GL_TEXTURE_2D, main_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA,GL_UNSIGNED_BYTE,sdl_screen->pixels );
+
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0,1.0);
+        glVertex2f(0.0,0.0);
+        glTexCoord2f(1.0,1.0);
+        glVertex2f(1.0,0.0);
+        glTexCoord2f(1.0,0.0);
+        glVertex2f(1.0,1.0);
+        glTexCoord2f(0.0,0.0);
+        glVertex2f(0.0,1.0);
+    glEnd();
+    glFlush();
+    SDL_GL_SwapBuffers();
+#endif		
 		nanosleep(ts);
 		}
 		 video_done=1;
@@ -260,7 +402,13 @@ int  handle_keys(void *useless)
 				mouse_buttons=0x01;
 			}
 		}
-	  	
+	  	if (event.type == SDL_VIDEORESIZE)
+		{
+ 			resize=1;
+ 			resize_x=event.resize.w;
+ 			resize_y=event.resize.h;
+		}
+
 		
      }	
 		SDL_Delay(20);
@@ -272,13 +420,21 @@ int  handle_keys(void *useless)
 
 
 
+
+
 void SDL_init_video(uint8_t *vga_buf)
 {
 	uint16_t x,y;
-	SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
-
 	
+	SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
+#ifdef NO_OGL	
 	sdl_screen=SDL_SetVideoMode(WIDTH,HEIGHT,32,SDL_HWSURFACE|SDL_DOUBLEBUF);
+#else
+	if(SDL_BYTEORDER == SDL_LIL_ENDIAN){sdl_screen=SDL_CreateRGBSurface(SDL_SWSURFACE,WIDTH,HEIGHT,32,0x000000ff,0x0000ff00,0x00ff0000,0xff000000);}
+	else sdl_screen=SDL_CreateRGBSurface(SDL_SWSURFACE,WIDTH,HEIGHT,32,0xff000000,0x00ff0000,0x0000ff00,0x000000ff);
+		
+	
+#endif
 	if ( sdl_screen == NULL )
 	{
    		printf("Unable to set %dx%d video: %s\n",WIDTH,HEIGHT, SDL_GetError());
@@ -569,7 +725,12 @@ uint8_t mouse_get_status(void)
 int32_t mouse_get_x(void)
 {
 	int32_t x;
-	x=(mouse_x-X0)/XSCALE;
+	double rx,rx0;
+	if(resize_x==0) return 0;
+	rx=(double)(mouse_x)/(double)(resize_x);
+	rx0=(double)(wx0)/(double)(resize_x);
+	x=WIDTH*((rx-rx0)/(1-2*rx0));
+	x=(x-X0)/XSCALE;
 	if(x<0) x=0;
 	if(x>319) x=319;
 	return x;
@@ -578,7 +739,12 @@ int32_t mouse_get_x(void)
 int32_t mouse_get_y(void)
 {
 	int32_t y;
-	y=(mouse_y-Y0)/YSCALE;
+	double ry,ry0;
+	if(resize_y==0) return 0;
+	ry=(double)(mouse_y)/(double)(resize_y);
+	ry0=(double)(wy0)/(double)(resize_y);
+	y=HEIGHT*((ry-ry0)/(1-2*ry0));
+	y=(y-Y0)/YSCALE;
 	if(y<0) y=0;
 	if(y>199) y=199;
 	return y;
