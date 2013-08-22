@@ -460,7 +460,9 @@ end;
 
 {**************************************************************************}
 
+function getworth(item: integer): integer;forward;
 procedure displayleftlist;
+var str_price: string;
 begin
  mousehide;
  if trademode=0 then
@@ -524,7 +526,9 @@ begin
       i:=1;
       while cargo[i].index<>ship.cargo[x] do inc(i);
       str(ship.numcargo[x]:3,str1);
+      str(getworth(cargo[i].index),str_price);
       printxy(0,140+y*6,str1+' '+cargo[i].name);
+      printxy(115-5*length(str_price),140+y*6,' '+str_price);
      end;
     inc(x);
    until (y=6) or (x>250);
@@ -550,6 +554,8 @@ begin
        end;
       str(ship.numcargo[x]:3,str1);
       printxy(0,140+y*6,str1+' '+cargo[i].name);
+      str(getworth(cargo[i].index),str_price);
+      printxy(115-5*length(str_price),140+y*6,' '+str_price);
      end;
     dec(x);
    until (y=0) or (x<0);
@@ -712,6 +718,7 @@ end;
 
 procedure barterfor;
 var r: real;
+    item_name,item_price:string;
 begin
  if (trademode=1) or (tradeindex=0) then exit;
  trademode:=1;
@@ -719,8 +726,9 @@ begin
  i:=1;
  while cargo[i].index<>alienstuff^[tradeindex] do inc(i);
  mousehide;
- printxy(93,127,cargo[i].name);
+ item_name:=cargo[i].name;
  displayleftlist;
+ writeln(item_name);
  mouseshow;
  fillchar(tradestuff^,sizeof(alienstuffarray),0);
  alienworth:=getworth(alienstuff^[tradeindex]);
@@ -738,6 +746,10 @@ begin
    else i:=3;
   end;
  alienworth:=round(alienworth*0.33*i);
+ mousehide;
+ str(alienworth,item_price);
+ printxy(93,127,item_name+'('+item_price+')');
+ mouseshow;
  tradeworth:=0;
 end;
 
@@ -748,7 +760,7 @@ begin
  trademode:=0;
  mousehide;
  for i:=128 to 133 do
-  fillchar(screen[i,97],101,0);
+  fillchar(screen[i,97],121,0);
  for i:=141 to 183 do
   fillchar(screen[i,194],101,0);
  for j:=1 to 20 do
@@ -795,7 +807,7 @@ begin
  subcursor2;
  mousehide;
  for i:=128 to 133 do
-  fillchar(screen[i,97],101,0);
+  fillchar(screen[i,97],121,0);
  for i:=141 to 183 do
   fillchar(screen[i,194],101,0);
  for i:=158 to 164 do
