@@ -31,9 +31,14 @@
 //#define NO_OGL
 
 #define WIDTH 640
-#define HEIGHT 480
+#ifdef NO_OGL
+	#define HEIGHT 480
+	#define Y0 40
+#else
+	#define HEIGHT 450
+	#define Y0 25
+#endif
 #define X0 0
-#define Y0 40
 #define XSCALE 2
 #define YSCALE 2
 #define TIMESCALE 1.0
@@ -42,7 +47,7 @@
 #define SOUNDS_PATH "sound/"
 #define TURBO_FACTOR 60
 
-const double ratio=640.0/480.0;
+const double ratio=640.0/480;
 
 SDL_Surface *sdl_screen, *opengl_screen;
 SDL_Thread *video, *keyshandler;
@@ -193,7 +198,7 @@ int resizeWindow( int width, int height )
 void init_opengl(void)
 {
     SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, 8 );
-    if (NULL == (opengl_screen = SDL_SetVideoMode(WIDTH, HEIGHT, 0, SDL_OPENGL |SDL_RESIZABLE | SDL_GL_DOUBLEBUFFER )))
+    if (NULL == (opengl_screen = SDL_SetVideoMode(resize_x, resize_y, 0, SDL_OPENGL |SDL_RESIZABLE | SDL_GL_DOUBLEBUFFER )))
     {
         printf("Can't set OpenGL mode: %s\n", SDL_GetError());
         SDL_Quit();
@@ -209,8 +214,8 @@ void init_opengl(void)
     glShadeModel(GL_SMOOTH);
     glClearStencil(0);     
     glClearDepth(1.0f);
-	set_perspective();
-    set_resize_callback(resizeWindow);
+	resizeWindow(resize_x,resize_y);
+    
 }
 
 
@@ -622,22 +627,22 @@ void draw_pixel(uint16_t x, uint16_t y)
 void circle(uint16_t x, uint16_t y, uint16_t r)
 {
 	int64_t xx,yy;
-	r=r*0.9; // !!!!
+	const float E=0.9;
 	xx=0;
 	yy=r;
-		draw_pixel(x+xx,(y+yy));
-		draw_pixel(x-xx,(y+yy));
-		draw_pixel(x+xx,(y-yy));
-		draw_pixel(x-xx,(y-yy));
+		draw_pixel(x+xx,(y+yy*E));
+		draw_pixel(x-xx,(y+yy*E));
+		draw_pixel(x+xx,(y-yy*E));
+		draw_pixel(x-xx,(y-yy*E));
 		while(yy>=1)
 	{
 		yy=yy-1;
 		if((xx*xx)+(yy*yy)<(r*r)) 	xx=xx+1;
 		if((xx*xx)+(yy*yy)<(r*r)) 	yy=yy+1;
-		draw_pixel(x+xx,(y+yy));
-		draw_pixel(x-xx,(y+yy));
-		draw_pixel(x+xx,(y-yy));
-		draw_pixel(x-xx,(y-yy));
+		draw_pixel(x+xx,(y+yy*E));
+		draw_pixel(x-xx,(y+yy*E));
+		draw_pixel(x+xx,(y-yy*E));
+		draw_pixel(x-xx,(y-yy*E));
 
 	}
 
@@ -972,7 +977,7 @@ void pieslice(uint16_t x, uint16_t y, uint16_t phi0, uint16_t phi1, uint16_t r)
 {
 	int16_t i,j;
 	double f,f0,f1;
-	r=r*0.9; //!!
+	const float E=0.9;
 	f0=phi0*M_PI/180.0;
 	f1=phi1*M_PI/180.0;
 	for(j=-r;j<r;j++)
@@ -982,7 +987,7 @@ void pieslice(uint16_t x, uint16_t y, uint16_t phi0, uint16_t phi1, uint16_t r)
 			if(f<0) f+=2*M_PI;
 			if((f>=f0) && (f<f1))
 			{
-				if((i*i+j*j)<=r*r) v_buf[i+x+320*(y-j)]=fill_color;
+				if((i*i+j*j)<=r*r) v_buf[i+x+320*(y-(int)(j*E))]=fill_color;
 			}
 		}
 }
