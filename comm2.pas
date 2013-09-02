@@ -728,7 +728,6 @@ begin
  mousehide;
  item_name:=cargo[i].name;
  displayleftlist;
- writeln(item_name);
  mouseshow;
  fillchar(tradestuff^,sizeof(alienstuffarray),0);
  alienworth:=getworth(alienstuff^[tradeindex]);

@@ -144,11 +144,11 @@ end;
 
 procedure restcrew;
 begin
-   for j:=1 to 200 do
+   for j:=1 to 2000 do
    begin
       addtime;
       showtime;
-      delay(tslice div 5);
+//      delay(tslice div 5);
    end;
    for j:=1 to 6 do
       with ship.crew[j] do
