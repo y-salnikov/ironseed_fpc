@@ -1,0 +1,6 @@
+v 0.0.2
+- add "turbo" key - "Scroll Lock"
+- OpenGL renderer, now window resizable. Can be switched off by #define NO_OGL
+- trade: Add items prices
+v 0.0.1
+- it's working !
